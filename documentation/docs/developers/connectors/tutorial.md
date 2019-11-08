@@ -5,7 +5,7 @@ This guide is intended to get you familiarized with basic structure of a connect
 By the end of this guide, you should: 
 
 * Have a general understanding of the base classes that serve as building blocks of a connector
-* Be able to integrate new connectors from scratch
+* Be able to integrate and test new connectors from scratch
 
 Implementing a new connector can generally be split into 3 major tasks:
 
@@ -17,11 +17,11 @@ Implementing a new connector can generally be split into 3 major tasks:
 
 Generally the first 2 components you should begin with when implementing your own connector are the `OrderBookTrackerDataSource` and `OrderBookTracker`.
 
-The `OrderBookTracker` contains subsidiary classes that help maintain the real-time order book of a market. Namely, the classes are `OrderBookTrackerDataSource` and `ActiveOrderTracker`.
+The `OrderBookTracker` contains subsidiary classes that helps to maintain the real-time order book of a market. Namely, the classes are `OrderBookTrackerDataSource` and `ActiveOrderTracker`.
 
 ### OrderBookTrackerDataSource
 
-The `OrderBookTrackerDataSource` class is responsible for making API calls and/or WebSocket queries to obtain order book snapshots, order book deltas and miscellaneous information on order book.
+The `OrderBookTrackerDataSource` class is responsible for making API calls and/or WebSocket queries to obtain order book snapshots, order book deltas and other miscellaneous information on a trading pair supported on the exchange.
 
 Integrating your own data source component would require you to extend from the `OrderBookTrackerDataSource` base class [here](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/order_book_tracker_data_source.py).
 
@@ -55,7 +55,7 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `c_convert_trade_message_to_np_arrays` | `object`: message | `numpy.array` | Parses an incoming trade messages into `numpy.array` data type to be used by `convert_diff_message_to_order_book_row()`.
 
 !!! warning
-    `OrderBookRow` should only be used in the `ActiveOrderTracker` class, while `ClientOrderBookRow` should only be used in the `Market` class. This is due to improve performance especially since calculations in `float` fair better than that of `Decimal`.
+    `OrderBookRow` should only be used in the `ActiveOrderTracker` class, while `ClientOrderBookRow` should only be used in the `Market` class. This is to improve performance especially since calculations in `float` fair better than in `Decimal`.
 
 ### OrderBookTracker
 
@@ -101,7 +101,7 @@ The `UserStreamTracker` main responsibility is to fetch user account data and qu
 
 The `UserStreamTrackerDataSource` class is responsible for making API calls and/or WebSocket queries to obtain order book snapshots, order book deltas and miscellaneous information on order book.
 
-Integrating your own data source component would require you to extend from the OrderBookTrackerDataSource base class here.
+Integrating your own data source component would require you to extend from the `OrderBookTrackerDataSource` base class here.
 
 The table below details the **required** functions in `UserStreamTrackerDataSource`:
 
@@ -177,7 +177,7 @@ The section below will describe in detail what is required for the `Market` clas
 Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `execute_buy` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0`| None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a buy order by calling the `place_order` function.<br/><br/>This function also begins to track the order by calling the `c_start_tracking_order` and `c_trigger_event` function.<br/>
-`execute_buy` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0` | None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a buy order by calling the `place_order` function.
+`execute_sell` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0` | None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a sell order by calling the `place_order` function.
 
 !!! tip
     The `execute_buy` and `execute_sell` methods verify that the trades would be allowed given the trading rules obtained from the exchange and calculate applicable trading fees. They then must do the following:
@@ -245,12 +245,12 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `limit_orders` | `None` | `List[LimitOrder]` | Returns a list of active limit orders being tracked.
 `tracking_states` | `None` | `Dict[str, any]` | Returns a mapping of tracked client order IDs to the respective `InFlightOrder`. Used by the `MarketsRecorder` class to orchestrate market classes at a high level.
 `restore_tracking_states` | `None` | `None` | Updates InFlight order statuses from API results. This is used by the `MarketRecorder` class to orchestrate market classes at a higher level.
-`get_active_exchange_markets` | `None` | `pandas.DataFrame` | Used by the discovery strategy to read order books of all actively trading markets, and find opportunities for profit.
+`get_active_exchange_markets` | `None` | `pandas.DataFrame` | A wrapper function for `OrderBookTrackerDataSource.get_active_exchange_markets`. Used by the discovery strategy to read order books of all actively trading markets, and find opportunities for profit.
 `start_network` | `None` | `None` | An asynchronous wrapper function used by `NetworkBase` class to handle when a single market goes online.
 `stop_network` | `None` | `None` | An asynchronous wrapper function for `_stop_network`. Used by `NetworkBase` class to handle when a single market goes offline.
 `check_network` | `None` | `NetworkStatus` | `An asynchronous function used by `NetworkBase` class to check if the market is online/offline.
 `get_order` | `client_order_id:str`| `Dict[str, Any]` | Gets status update for a particular order via rest API.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are required to retrieve the exchange order ID for the specified `client_order_id`. You can do this by calling the `get_exchange_order_id` function available in the `InFlightOrderBase`.</td></tr></tbody></table>
-`place_order` | `order_id:str`<br/>`symbol:str`<br/>`amount:Decimal`<br/>`is_buy:bool`<br/>`order_type:OrderType`<br/>`price:Decimal`| `Dict[str, Any]` | An asynchronous wrapper for placing orders through the REST API. Returns a JSON response from the API.
+`place_order` | `order_id:str`<br/>`symbol:str`<br/>`amount:Decimal`<br/>`is_buy:bool`<br/>`order_type:OrderType`<br/>`price:Decimal`| `Dict[str, Any]` | An asynchronous wrapper for placing orders through the REST API. Returns a JSON response from the API.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Certain illiquid trading pairs(i.e. FXC-BTC on Bittrex) often have extremely low prices('3.1E-7'). Most exchanges are not able to handle this request. As such it is important to make sure that the `amount` and `price` parameters are set correctly.<br/>In most cases, we **enforce** a format string literal([f-string](https://realpython.com/python-f-strings/#f-strings-a-new-and-improved-way-to-format-strings-in-python)) to prevent this.</td></tr></tbody></table>
 `cancel_all` | `timeout_seconds:float`| `List[CancellationResult]` | An asynchronous function that cancels all active orders. Used by Hummingbot's top level "stop" and "exit" commands(cancelling outstanding orders on exit). Returns a `List` of [`CancellationResult`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/cancellation_result.py).<br/><br/>A `CancellationResult` is an object that indicates if an order has been successfully cancelled with a boolean variable.
 `_stop_network` | `None` | `None` | Synchronous function that handles when a single market goes offline
 `_http_client` | `None` | `aiohttp.ClientSession` | Returns a shared HTTP client session instance. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This prevents the need to establish a new session on every API request.</td></tr></tbody></table>
@@ -395,11 +395,11 @@ MARKET = {
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
 
 !!! warning
-    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](#option-3-unit-test-cases) to build your unit tests.
+    As part of the QA process, for each task(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](#option-3-unit-test-cases) to build your unit tests.
     
 ### Option 1. Unit Test Cases
 
-For each tasks(1->3), you are required to create a unit test case. Namely they are `test_*_order_book_tracker.py`, `test_*_user_stream_tracker.py` and `test_*_market.py`. 
+For each task(1->3), you are required to create a unit test case. Namely they are `test_*_order_book_tracker.py`, `test_*_user_stream_tracker.py` and `test_*_market.py`. 
 Examples can be found in the [test/integration](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration) folder.
 
 Below are a list of items required for the Unit Tests:
@@ -409,152 +409,155 @@ The purpose of this test is to ensure that the `OrderBookTrackerDataSource` and 
 Another way to test its functionality is using a Debugger to ensure that the contents `OrderBook` mirrors that on the exchange.
 
 2. User Stream Tracker | `test_*_user_stream_tracker.py`<br/>
-The purpose of this test is to ensure that the `UserStreamTrackerDataSource` and `UserStreamTracker` components are working as intended.
-This only applies to exchanges that has a WebSocket API. As seen in the examples for this test, it simply outputs all the user stream messages. 
-It is still required that certain actions(buy and cancelling orders) be performed for the tracker to capture. Manual message comparison would be required.
+The purpose of this test is to ensure that the `UserStreamTrackerDataSource` and `UserStreamTracker` components are working as intended. This only applies to exchanges that has a WebSocket API. 
+Also ,it is still required that certain actions(buy and/or cancelling orders) be performed for the tracker to capture these messages. Manual comparison would be still be required.
 
-i.e. Placing a single LIMIT-BUY order on Bittrex Exchange should return the following(some details are omitted)
+    !!! note
+        The tests in existing connectors essentially waits and accumulates the messages from the `UserStreamTracker` onto a `asyncio.Queue` and simply prints it.
 
-```Bash tab="Order Detail(s)"
-Trading Pair: ZRX-ETH
-Order Type: LIMIT-BUY
-Amount: 100ZRX
-Price: 0.00160699ETH
-```
+    i.e. Placing a single LIMIT-BUY order on Bittrex Exchange should return the following(some details are omitted)
 
-```Bash tab="Action(s) Performed"
-1. Placed LIMIT BUY order.
-2. Cancel order.
-```
+    ```Bash tab="Order Detail(s)"
+    Trading Pair: ZRX-ETH
+    Order Type: LIMIT-BUY
+    Amount: 100ZRX
+    Price: 0.00160699ETH
+    ```
 
-```Bash tab="Expected output"
-# Below is the outcome of the test. Determining if this is accurate would still be necessaru.
+    ```Bash tab="Action(s) Performed"
+    # These are to be done on the web application or via scripts
+    1. Placed LIMIT BUY order.
+    2. Cancel order.
+    ```
 
-<Queue maxsize=0 _queue=[
-    BittrexOrderBookMessage(
-        type=<OrderBookMessageType.DIFF: 2>, 
-        content={
-            'event_type': 'uB',
-            'content': {
-                'N': 4,
-                'd': {
-                    'U': '****', 
-                    'W': 3819907,
-                    'c': 'ETH',
-                    'b': 1.13183357, 
-                    'a': 0.96192245, 
-                    'z': 0.0,
-                    'p': '0x****',
-                    'r': False, 
-                    'u': 1572909608900,
-                    'h': None
-                }
-            }, 
-            'error': None, 
-            'time': '2019-11-04T23:20:08'
-        },
-        timestamp=1572909608.0
-    ), 
-    BittrexOrderBookMessage(
-        type=<OrderBookMessageType.DIFF: 2>,
-        content={
-            'event_type': 'uO',
-            'content': {
-                'w': '****',
-                'N': 44975,
-                'TY': 0,
-                'o': {
-                    'U': '****',
-                    'I': 3191361360,
-                    'OU': '****',
-                    'E': 'XRP-ETH',
-                    'OT': 'LIMIT_BUY',
-                    'Q': 100.0,
-                    'q': 100.0,
-                    'X': 0.00160699,
-                    'n': 0.0,
-                    'P': 0.0,
-                    'PU': 0.0,
-                    'Y': 1572909608900,
-                    'C': None,
-                    'i': True,
-                    'CI': False,
-                    'K': False,
-                    'k': False,
-                    'J': None,
-                    'j': None,
-                    'u': 1572909608900,
-                    'PassthroughUuid': None
-                }
+    ```Bash tab="Expected Output"
+    # Below is the outcome of the test. Determining if this is accurate would still be necessaru.
+
+    <Queue maxsize=0 _queue=[
+        BittrexOrderBookMessage(
+            type=<OrderBookMessageType.DIFF: 2>, 
+            content={
+                'event_type': 'uB',
+                'content': {
+                    'N': 4,
+                    'd': {
+                        'U': '****', 
+                        'W': 3819907,
+                        'c': 'ETH',
+                        'b': 1.13183357, 
+                        'a': 0.96192245, 
+                        'z': 0.0,
+                        'p': '0x****',
+                        'r': False, 
+                        'u': 1572909608900,
+                        'h': None
+                    }
+                }, 
+                'error': None, 
+                'time': '2019-11-04T23:20:08'
             },
-            'error': None,
-            'time': '2019-11-04T23:20:08'
-        }, 
-        timestamp=1572909608.0
-    ),
-    BittrexOrderBookMessage(
-        type=<OrderBookMessageType.DIFF: 2>,
-        content={
-            'event_type': 'uB',
-            'content': {
-                'N': 5,
-                'd': {
-                    'U': '****',
-                    'W': 3819907,
-                    'c': 'ETH', 
-                    'b': 1.13183357, 
-                    'a': 1.1230232,
-                    'z': 0.0,
-                    'p': '****',
-                    'r': False,
-                    'u': 1572909611750,
-                    'h': None
-                }
+            timestamp=1572909608.0
+        ), 
+        BittrexOrderBookMessage(
+            type=<OrderBookMessageType.DIFF: 2>,
+            content={
+                'event_type': 'uO',
+                'content': {
+                    'w': '****',
+                    'N': 44975,
+                    'TY': 0,
+                    'o': {
+                        'U': '****',
+                        'I': 3191361360,
+                        'OU': '****',
+                        'E': 'XRP-ETH',
+                        'OT': 'LIMIT_BUY',
+                        'Q': 100.0,
+                        'q': 100.0,
+                        'X': 0.00160699,
+                        'n': 0.0,
+                        'P': 0.0,
+                        'PU': 0.0,
+                        'Y': 1572909608900,
+                        'C': None,
+                        'i': True,
+                        'CI': False,
+                        'K': False,
+                        'k': False,
+                        'J': None,
+                        'j': None,
+                        'u': 1572909608900,
+                        'PassthroughUuid': None
+                    }
+                },
+                'error': None,
+                'time': '2019-11-04T23:20:08'
             }, 
-            'error': None, 
-            'time': '2019-11-04T23:20:11'
-        }, 
-        timestamp=1572909611.0
-    ), 
-    BittrexOrderBookMessage(
-        type=<OrderBookMessageType.DIFF: 2>,
-        content={
-            'event_type': 'uO',
-            'content': {
-                'w': '****',
-                'N': 44976, 
-                'TY': 3, 
-                'o': {
-                    'U': '****', 
-                    'I': 3191361360, 
-                    'OU': '****', 
-                    'E': 'XRP-ETH', 
-                    'OT': 'LIMIT_BUY', 
-                    'Q': 100.0, 
-                    'q': 100.0, 
-                    'X': 0.00160699, 
-                    'n': 0.0, 
-                    'P': 0.0, 
-                    'PU': 0.0, 
-                    'Y': 1572909608900, 
-                    'C': 1572909611750, 
-                    'i': False, 
-                    'CI': True,
-                    'K': False,
-                    'k': False, 
-                    'J': None, 
-                    'j': None, 
-                    'u': 1572909611750, 
-                    'PassthroughUuid': None
-                }
+            timestamp=1572909608.0
+        ),
+        BittrexOrderBookMessage(
+            type=<OrderBookMessageType.DIFF: 2>,
+            content={
+                'event_type': 'uB',
+                'content': {
+                    'N': 5,
+                    'd': {
+                        'U': '****',
+                        'W': 3819907,
+                        'c': 'ETH', 
+                        'b': 1.13183357, 
+                        'a': 1.1230232,
+                        'z': 0.0,
+                        'p': '****',
+                        'r': False,
+                        'u': 1572909611750,
+                        'h': None
+                    }
+                }, 
+                'error': None, 
+                'time': '2019-11-04T23:20:11'
             }, 
-            'error': None, 
-            'time': '2019-11-04T23:20:11'
-        }, 
-        timestamp=1572909611.0
-    )
-] tasks=4>
-```
+            timestamp=1572909611.0
+        ), 
+        BittrexOrderBookMessage(
+            type=<OrderBookMessageType.DIFF: 2>,
+            content={
+                'event_type': 'uO',
+                'content': {
+                    'w': '****',
+                    'N': 44976, 
+                    'TY': 3, 
+                    'o': {
+                        'U': '****', 
+                        'I': 3191361360, 
+                        'OU': '****', 
+                        'E': 'XRP-ETH', 
+                        'OT': 'LIMIT_BUY', 
+                        'Q': 100.0, 
+                        'q': 100.0, 
+                        'X': 0.00160699, 
+                        'n': 0.0, 
+                        'P': 0.0, 
+                        'PU': 0.0, 
+                        'Y': 1572909608900, 
+                        'C': 1572909611750, 
+                        'i': False, 
+                        'CI': True,
+                        'K': False,
+                        'k': False, 
+                        'J': None, 
+                        'j': None, 
+                        'u': 1572909611750, 
+                        'PassthroughUuid': None
+                    }
+                }, 
+                'error': None, 
+                'time': '2019-11-04T23:20:11'
+            }, 
+            timestamp=1572909611.0
+        )
+    ] tasks=4>
+    ```
 
 3. Market Connector | `test_*_market.py`<br/>
 The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
