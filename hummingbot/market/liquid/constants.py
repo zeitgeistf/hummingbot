@@ -6,7 +6,10 @@ class Constants:
     # Rest API endpoints
     BASE_URL = 'https://api.liquid.com'
 
-    GET_EXCHANGE_MARKETS_URL = BASE_URL + '/products'
+    PRODUCTS_URI = '/products'
+    ACCOUNTS_BALANCE_URI = '/accounts/balance'
+
+    GET_EXCHANGE_MARKETS_URL = BASE_URL + PRODUCTS_URI
     GET_SNAPSHOT_URL = BASE_URL + '/products/{id}/price_levels?full={full}'
     GET_USER_STREAM_URL = BASE_URL + ''
 

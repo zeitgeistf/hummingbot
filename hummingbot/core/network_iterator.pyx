@@ -12,11 +12,11 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 NaN = float("nan")
 s_logger = None
 
+
 class NetworkStatus(Enum):
     STOPPED = 0
     NOT_CONNECTED = 1
     CONNECTED = 2
-
 
 
 cdef class NetworkIterator(TimeIterator):
@@ -84,11 +84,13 @@ cdef class NetworkIterator(TimeIterator):
 
     async def _check_network_loop(self):
         while True:
+            print("NETWORK ITERATOR: _check_network_loop")
             new_status = self._network_status
             last_status = self._network_status
             has_unexpected_error = False
 
             try:
+                print("NETWORK ITERATOR: before check_network")
                 new_status = await asyncio.wait_for(self.check_network(), timeout=self._check_network_timeout)
             except asyncio.CancelledError:
                 raise
@@ -115,6 +117,7 @@ cdef class NetworkIterator(TimeIterator):
                 await asyncio.sleep(self._network_error_wait_time)
 
     cdef c_start(self, Clock clock, double timestamp):
+        print("NETWORK ITERATOR: c_start")
         TimeIterator.c_start(self, clock, timestamp)
         self._check_network_task = safe_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED

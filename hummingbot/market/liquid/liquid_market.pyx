@@ -875,7 +875,6 @@ cdef class LiquidMarket(MarketBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
